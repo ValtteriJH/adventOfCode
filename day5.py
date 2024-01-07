@@ -1,3 +1,8 @@
+## TODO, needs clever tricks, multithreading or optimizing. Current program does the trick but as is runs in 12.925 hours
+# wins: still better than many online solutions
+# L:s i dont like the bruteforce approach, no multithreading or more optimized data structures because assumed wouldnt be needed
+
+
 inStr = '''seeds: 3943078016 158366385 481035699 103909769 3553279107 15651230 3322093486 189601966 2957349913 359478652 924423181 691197498 2578953067 27362630 124747783 108079254 1992340665 437203822 2681092979 110901631
 
 seed-to-soil map:
@@ -272,14 +277,30 @@ humidity-to-location map:
 60 56 37
 56 93 4'''
 
+'''
+Consider again the example seed-to-soil map:
+
+50 98 2
+52 50 48
+The first line has a destination range start of 50, a source range start of 98, and a range length of 2.
+'''
+class rangeObj:
+    def __init__(self, start, end, diff):
+        self.start = start
+        self.end = end
+        self.diff = diff
+    def f(self):
+        return 'hello world'
+    def inRange(self, idx):
+        return idx >= self.start and idx <= self.end
+    def nextVal(self, idx):
+        return idx - self.diff
 
 def parser(inStr):
-    
-    # Redo into range sensitive version, increase the efficiency do maths
-    
+        
     lines = inStr.split('\n')
     lines = list(filter(len, lines)) # remove empty
-    # : as a switch between different maps
+    # : as a switch between different tables
     
     ''' order of saving
     seeds
@@ -294,57 +315,51 @@ def parser(inStr):
     
     tag = False
     # vector of maps where keys are value 1 and values are value 2
-    seeds = []
-    values = {}
+    seeds = {}
+    values = []
     tables = []
     for line in lines:
         
         if line.find(':') != -1:
             if not tag:
-                values['seeds'] = list(map(int,line.split(': ')[1].split(' '))) # SEEDS IN INT
+                seeds['seeds'] = list(map(int,line.split(': ')[1].split(' '))) # SEEDS IN INT
                 tag = True
+                values = seeds
                 continue
-            
-            
+
             tables.append(values)
-            values = {}
-            title = ''
-            continue
-        
+            values = []
+            continue    
+
         ranges = list(map(int,line.split(' ')))
-        
-        for i in range(ranges[2]):
-            values[ranges[1]+i] = ranges[0]+i
-        
+        values.append(rangeObj(ranges[1], ranges[1] + ranges[2]-1, ranges[1] - ranges[0]))    
+
     tables.append(values)
-    
+
     return tables
 
 
-            # change the name of the map
-            # key item 1 value item 2
-            # iterate over the designated range in line
-            # source target range
-            
-    
     
 def getSeedInfo(data, seed):
     
     seedInfo = [seed]
     
     recent = seed
+
+    if seed%100000 == 0:
+        print(f"range status: {seed}")
     
     for table in data[1:]:
-        if recent in table.keys():
-            seedInfo.append(table[recent])
-            recent = table[recent]
+        match = list(filter(lambda x: x.inRange(recent), table))
+        if match:
+            seedInfo.append(match[0].nextVal(recent))
+            recent = match[0].nextVal(recent)
         else:
             seedInfo.append(recent)
 
-
     return seedInfo
 
-def translateSeedInfo(seedInfo):
+def translateSeedInfo(seedInfo): #TODO BROKEN, FIX |somehow only gets one int as an input, find out why
     
     tags =['seeds','seed-to-soil','soil-to-fertilizer','fertilizer-to-water','water-to-light',
            'light-to-temperature','temperature-to-humidity','humidity-to-location']
@@ -357,15 +372,47 @@ def translateSeedInfo(seedInfo):
 def findLowestLocation(data):
     locations = []
     for i in data[0]['seeds']:
-        locations.append(getSeedInfo(data, i)[-1])
-        
+        info = getSeedInfo(data, i)[-1]
+        locations.append(info)
+        #translateSeedInfo(info)
     return min(locations)
 
+def findLowestLocation2(data):
+    locations = []
+    seeds = data[0]['seeds']
+    for i,o in enumerate(seeds):
+        print(f"processing seed range {o[0]} -> {o[-1]}")
+        
+        info = list(map(lambda x:getSeedInfo(data, x)[-1], o))
+        print(f"{i}/{len(seeds)} done!")
+        #info = getSeedInfo(data, i)[-1]
+        locations.append(info)
+        #translateSeedInfo(info)
+
+    print(f"{len(seeds)}/{len(seeds)} done!")
+    return min(locations)
+
+def modDataPart2(data):
+    seeds = data[0]['seeds']
+    results = []
+    for i in range(0,len(seeds),2):
+        results.append(range(seeds[i],seeds[i]+seeds[i+1]))
+    # Change seeds to range objects, do the lambda thing to find out lowest thing
+    #a = range(103909769)
+    #d = list(filter(lambda x:x%2 == 0,a)
+    data[0]['seeds'] = results
     
 def main():
+    data = parser(testStr)
+    print(findLowestLocation(data))
     data = parser(inStr)
     print(findLowestLocation(data))
+    data = parser(testStr)
+    # PART 2
+    modDataPart2(data) # Changes data to be ranges of seeds instead of just seeds
+    print(min(findLowestLocation2(data)))
+    data = parser(inStr)
+    modDataPart2(data) # Changes data to be ranges of seeds instead of just seeds
+    print(min(findLowestLocation2(data)))
     
-    # print(translateSeedInfo((getSeedInfo(data, 14))))
-
 main()
